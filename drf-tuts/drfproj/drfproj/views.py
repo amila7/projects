@@ -1,8 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Student
-from .serializers import StudentSerializer
+from drfapp.models import Student
+from drfapp.serializers import StudentSerializer
 
 class TestView(APIView):
     def get(self, request, *args, **kwargs):
