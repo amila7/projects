@@ -3,21 +3,22 @@ from fastapi.params import Body
 from pydantic import BaseModel
 from typing import Optional
 from random import randrange
+from passlib.context import CryptContext
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from . import models
+from . import models, schemas
 from .database import engine,get_db
 from sqlalchemy.orm import Session
 
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
-
 class Post(BaseModel):
     title: str
     content: str
-    published: bool = True
+    published: Optional[bool] = True
 
 while True:
     try:
@@ -46,69 +47,65 @@ def find_post(id):
     for post in my_posts:
         if post["id"] == id:
             return post
+        
+
 @app.get("/")
 def root():
     return {"message": "hey amila"}
 
-@app.get("/sqlalchemy")
-def test_posts(db: Session = Depends(get_db)):
-    posts = db.query(models.Post).all()
+
+
+@app.get("/posts", response_model=list[schemas.Post])
+def get_posts(db: Session = Depends(get_db)):
+    posts = db.query(models.Post).all()   
     print(posts)
     return posts
 
 
-@app.get("/posts")
-def get_posts():
-    posts= cursor.execute("SELECT * FROM posts")
-    posts = cursor.fetchall()
-    conn.commit()
-    print(posts)
-    return {"post": posts}
-
-@app.post("/posts")
-def create_posts(post: Post):
-    cursor.execute(
-        "INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING *",
-        (post.title, post.content, post.published)
-                )
-    new_post = cursor.fetchone()
-    conn.commit()
+@app.post("/posts", response_model=schemas.Post)
+def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db)):
+    new_post = models.Post(**post.model_dump())
+    db.add(new_post)
+    db.commit()
+    db.refresh(new_post)
     print(new_post)
-    return {"data": new_post}
+    return new_post
 
 
 
-@app.get("/posts/{id}")
-def get_post(id: int):
-    cursor.execute("SELECT * FROM posts WHERE id = %s", (id,))
-    test_post = cursor.fetchone()
-    print(test_post)
-
-    if not test_post:
-        raise HTTPException(status_code=404, detail="Post with id {id}as not found")
-
-    return {"post_detail": test_post}
+@app.get("/posts/{id}", response_model=schemas.Post)
+def get_post(id: int,db: Session = Depends(get_db)):
+    post =db.query(models.Post).filter(models.Post.id == id).first()
+    print(post)
+    return post
 
 @app.delete("/posts/{id}")
-def delete_post(id: int):
-    cursor.execute("DELETE FROM posts WHERE id = %s", (id,))
-    conn.commit()
-
-    if cursor.rowcount == 0:
-        raise HTTPException(status_code=404, detail=f"Post with id {id} was not found")
-
+def delete_post(id: int, db: Session = Depends(get_db)):
+    post = db.query(models.Post).filter(models.Post.id == id).first()
+    db.delete(post)
+    db.commit()
     return {"message": "Post deleted successfully"}
 
 @app.put("/posts/{id}")
-def update_post(id: int, post: Post):
-    cursor.execute(
-        "UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *",
-        (post.title, post.content, post.published, id)
-    )
-    updated_post = cursor.fetchone()
-    conn.commit()
+def update_post(id: int, post_update: schemas.PostCreate, db: Session = Depends(get_db)):
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    post = post_query.first()
+    post_query.update(post_update.model_dump(), synchronize_session=False)
+    db.commit()
+    db.refresh(post)
 
-    if not updated_post:
-        raise HTTPException(status_code=404, detail=f"Post with id {id} was not found")
+    return post_query.first()
 
-    return {"data": updated_post}
+
+
+@app.post("/users", status_code=status.HTTP_201_CREATED, response_model=schemas.UserOut)
+def create_user(user: schemas.UserCreate,db: Session = Depends(get_db)):
+
+    #hash the password - user.password
+    hash_password=pwd_context.hash(user.password)
+    user.password=hash_password
+    new_user = models.User(**user.model_dump())
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
