@@ -2,7 +2,7 @@ from fastapi import FastAPI,Response,status,HTTPException,Depends,APIRouter
 from fastapi.params import Body
 from pydantic import BaseModel
 from typing import List
-from passlib.context import CryptContext
+from passlib.context import CryptContext # type: ignore
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from .. import models, schemas
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 
 router = APIRouter(
-    prefix="/post",
+    prefix="/posts",
     tags=["Post"]
 )
 
