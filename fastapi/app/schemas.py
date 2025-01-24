@@ -12,8 +12,11 @@ class PostCreate(PostBase):
     pass
 
 class Post(BaseModel):
+    id: int
     title: str
     content: str
+    owner_id: Optional[int] 
+    created_at: datetime
     published: Optional[bool]
 
     class Config:
@@ -39,4 +42,4 @@ class Token(BaseModel):
     token_type: str
 
 class TokenData(BaseModel):
-    id: Optional[str] = None
+    id: Optional[int]
