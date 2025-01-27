@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from .database import get_db
 from fastapi.security import OAuth2PasswordBearer
+from .config import settings
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
@@ -12,9 +13,9 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 # Secret key to sign the JWT token
 #Algorithm used to sign the token
 #Expiration time of the token
-SECRET_KEY = "e0e4e6f6a7f7c2"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 # Function to create a JWT token
 

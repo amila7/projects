@@ -1,7 +1,7 @@
 from fastapi import FastAPI,Response,status,HTTPException,Depends,APIRouter
 from fastapi.params import Body
 from pydantic import BaseModel
-from typing import List
+from typing import List,Optional
 from passlib.context import CryptContext # type: ignore
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -16,8 +16,9 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=list[schemas.Post])
-def get_posts(db: Session = Depends(get_db), user_id: int = Depends(oauth2.get_current_user)):
-    posts = db.query(models.Post).all()   
+def get_posts(db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user),Limit:int = 10, skip: int = 0, search: Optional[str] =""):
+    posts = db.query(models.Post).filter(models.Post.title.contains(search)).limit(Limit).offset(skip).all()
+    print(Limit)
     print(posts)
     return posts
 
@@ -25,7 +26,7 @@ def get_posts(db: Session = Depends(get_db), user_id: int = Depends(oauth2.get_c
 @router.post("/", response_model=schemas.Post)
 def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
 
-    print(current_user.email)
+    print(current_user.id)
     new_post = models.Post(**post.model_dump())
     db.add(new_post)
     db.commit()
@@ -36,22 +37,33 @@ def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db), curren
 
 
 @router.get("/{id}", response_model=schemas.Post)
-def get_post(id: int,db: Session = Depends(get_db),ser_id: int = Depends(oauth2.get_current_user)):
+def get_post(id: int,db: Session = Depends(get_db),current_user: int = Depends(oauth2.get_current_user)):
     post =db.query(models.Post).filter(models.Post.id == id).first()
     print(post)
     return post
 
 @router.delete("/{id}")
-def delete_post(id: int, db: Session = Depends(get_db), user_id: int = Depends(oauth2.get_current_user)):
-    post = db.query(models.Post).filter(models.Post.id == id).first()
-    db.delete(post)
+def delete_post(id: int, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    post = post_query.first()
+    if post == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"post with id {id} does not exit")
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this ")
+    post_query.delete(synchronize_session=False)
     db.commit()
     return {"message": "Post deleted successfully"}
 
 @router.put("/{id}")
-def update_post(id: int, post_update: schemas.PostCreate, db: Session = Depends(get_db), user_id: int = Depends(oauth2.get_current_user)):
+def update_post(id: int, post_update: schemas.PostCreate, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
     post_query = db.query(models.Post).filter(models.Post.id == id)
     post = post_query.first()
+    if post.first() == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"post with id {id} does not exit")
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this ")
     post_query.update(post_update.model_dump(), synchronize_session=False)
     db.commit()
     db.refresh(post)
