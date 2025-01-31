@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List,Optional
 from passlib.context import CryptContext # type: ignore
 import psycopg2
+from sqlalchemy import func
 from psycopg2.extras import RealDictCursor
 from .. import models, schemas, models,oauth2
 from ..database import engine,get_db
@@ -19,13 +20,16 @@ router = APIRouter(
 def get_posts(db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
     print(current_user.id)
 
+
     #who is the author of the post and get only posts of that auther
-    posts = db.query(models.Post).filter(models.Post.owner_id == current_user.id).all()
+    # posts = db.query(models.Post).filter(models.Post.owner_id == current_user.id).all()
 
     #all posts
-    # posts = db.query(models.Post).all()
+    posts = db.query(models.Post).all()
+    results = db.query(models.Post, func.count().label("votes")).join(models.Vote, models.Vote.post_id== models.Post.id,
+    isouter=True).group_by(models.Post.id)
 
-    print(posts)
+    print(results)
     return posts
 
 
