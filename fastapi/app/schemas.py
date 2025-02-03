@@ -12,13 +12,25 @@ class PostBase(BaseModel):
 class PostCreate(PostBase):
     pass
 
+class UserOut(BaseModel):
+    email: EmailStr
+    id: int
+    created_at: datetime
+    class Config:
+        orm_mode = True
+
 class Post(PostBase):
     id: int
     owner_id: Optional[int] 
     created_at: datetime
+    owner: UserOut
 
     class Config:
         orm_mode = True
+
+class PostOut(PostBase):
+    Post:Post
+    votes:int
 
 class UserCreate(BaseModel):
     email: EmailStr

@@ -16,25 +16,26 @@ router = APIRouter(
     tags=["Post"]
 )
 
-@router.get("/", response_model=list[schemas.Post])
-def get_posts(db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
-    print(current_user.id)
+@router.get("/", response_model=List[schemas.Post])
+# @router.get("/")
+def get_posts(db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user),Limit: int = 10, skip: int = 0, search: Optional[str]=""):
+    # print(current_user.id)
 
 
     #who is the author of the post and get only posts of that auther
-    # posts = db.query(models.Post).filter(models.Post.owner_id == current_user.id).all()
+    posts = db.query(models.Post).filter(models.Post.title.contains(search)).limit(Limit).offset(skip).all()
 
     #all posts
-    posts = db.query(models.Post).all()
-    results = db.query(models.Post, func.count().label("votes")).join(models.Vote, models.Vote.post_id== models.Post.id,
-    isouter=True).group_by(models.Post.id)
+    # posts = db.query(models.Post).all()
+    results = db.query(models.Post, func.count(models.Vote.post_id).label("votes")).join(models.Vote, models.Vote.post_id== models.Post.id,
+    isouter=True).group_by(models.Post.id).all()
+    
+    results = [result for result, _ in results]
+    return results
 
-    print(results)
-    return posts
 
 
-
-@router.post("/", response_model=schemas.Post)
+@router.post("/", response_model=schemas.PostOut)
 def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
 
     print(current_user.id)
